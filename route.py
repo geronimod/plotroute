@@ -141,11 +141,14 @@ if __name__ == "__main__":
   
   try:
     transport = sys.argv[4]
-    filename  = sys.argv[5]
   except IndexError:
     transport = 'cycle'
-    filename  = None
     print "WARNING: No transport type specified, assuming \"%s\"" % transport
+  
+  try:
+    filename = sys.argv[5]
+  except IndexError:
+    filename = None
   
   node_from, node_to = int(sys.argv[2]), int(sys.argv[3])
 

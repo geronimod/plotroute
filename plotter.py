@@ -3,7 +3,9 @@
 import sys
 import cairo
 import math 
-
+import os
+import subprocess
+    
 class Plotter:
   """Draw osm map and routing"""
   def __init__(self, nodes, filename = "plot.png"):
@@ -14,6 +16,11 @@ class Plotter:
     self.maxLon = -180
     self.maxLat = -90
     self.init_maximum_lat_and_long()
+
+  def node_id(self, coordinates):
+    for k, v in self.nodes.iteritems():
+        if coordinates == v:
+          return k
 
   def init_maximum_lat_and_long(self):
     for id, n in self.nodes.items():
@@ -44,8 +51,7 @@ class Plotter:
     y = self.h * (0.5 - 0.5 * (lat - self.clat) / (0.5 * self.dlat))
     return(x,y)
 
-  def draw(self, route_from, route_to, route):
-    """Wrapper around the routing function, which creates the output image, etc"""
+  def init_surface(self, route_from, route_to):
     size = 1690
     scalemap = 10 # the bigger this is, the more the map zooms-in
     # Centre the map halfway between start and finish
@@ -53,19 +59,24 @@ class Plotter:
     ctrLon = (self.nodes[route_from][1] + self.nodes[route_to][1]) / 2
     
     self.init_coordinates(size, size, ctrLat, ctrLon, scalemap)
-    surface = cairo.ImageSurface(cairo.FORMAT_RGB24, self.w, self.h)
+    self.surface = cairo.ImageSurface(cairo.FORMAT_RGB24, self.w, self.h)
     
-    self.ctx = cairo.Context(surface)
-    # Dump all the nodes onto the map, to give the routes some context
+    self.ctx = cairo.Context(self.surface)
     self.ctx.set_source_rgb(1.0, 0.0, 0.0)
     self.ctx.set_line_cap(cairo.LINE_CAP_ROUND)
-    
+
+    # Dump all the nodes onto the map, to give the routes some context
     for id,n in self.nodes.items():
       x,y = self.latlong_to_coordinates(*n)
       self.ctx.move_to(x,y)
       self.ctx.line_to(x,y)
       self.ctx.stroke()
     
+  
+  def draw(self, route_from, route_to, route):
+    """Wrapper around the routing function, which creates the output image, etc"""
+    self.init_surface(route_from, route_to)
+
     # Highlight the route
     self.draw_route(route)
     
@@ -75,7 +86,47 @@ class Plotter:
     
     # Image is complete
     print "Drawing %s..." % self.filename
-    surface.write_to_png(self.filename)
+    self.surface.write_to_png(self.filename)
+
+  
+  def simulation(self, route_from, route_to, route):
+    """Creates one image per node in the route"""
+    self.init_surface(route_from, route_to)
+
+    if not os.path.exists('simulation'):
+      os.makedirs('simulation')    
+    
+    previous = None
+    # Highlight each node in the route
+    print "Simulation start..."
+    for idx, coordinates in enumerate(route):
+      # reset previous node
+      if previous != None:
+        self.mark_node(previous, 1.0, 0.0, 0.0)
+        
+      self.mark_node(coordinates,1,1,1)
+      previous = coordinates
+      filename = "simulation/node-%05d.jpg" % idx
+      print "drawing %s" % filename
+      self.surface.write_to_png(filename)
+    
+    # -delay nsec -morph ntimes
+    cmd_frameset   = "convert simulation/node-*.jpg -delay 3 -morph 3 simulation/%05d.jpg"
+    filename_video = "simulation/simulation-%s-%s.mpg" % (str(route_from), str(route_to))
+    cmd_video      = "ffmpeg -f image2 -r 25 -i simulation/%05d.jpg " + filename_video
+    
+    proc_frameset = subprocess.Popen(cmd_frameset, shell=True)
+    print "images converting process..."
+    (out, err) = proc_frameset.communicate()
+    
+    proc_video = subprocess.Popen(cmd_video, shell=True)
+    print "video processing..."
+    (out, err) = proc_video.communicate()
+    
+    # if err == None:
+      # os.system("rm simulation/*.png")
+      # os.system("rm simulation/*.jpg")
+
 
   def draw_route(self, route):
     """Draw the found route"""

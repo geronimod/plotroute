@@ -43,10 +43,8 @@ class Router:
   
   def distance(self,n1,n2):
     """Calculate distance between two nodes"""
-    lat1 = self.data.nodes[n1][0]
-    lon1 = self.data.nodes[n1][1]
-    lat2 = self.data.nodes[n2][0]
-    lon2 = self.data.nodes[n2][1]
+    lat1,lon1 = self.data.nodes[n1]
+    lat2,lon2 = self.data.nodes[n2]
     # TODO: projection issues
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -154,11 +152,14 @@ if __name__ == "__main__":
 
   router = Router(data)
   result, route = router.doRouteAsLL(node_from, node_to, transport)
+  
   plot = Plotter(data.nodes) if filename is None else Plotter(data.nodes, filename)
-  plot.draw(node_from, node_to, route)
+  # plot.draw(node_from, node_to, route)
+  # plot.simulation(node_from, node_to, route)
 
   if result == 'success':
-    print "Route: %s" % ",".join("%1.4f,%1.4f" % (i[0],i[1]) for i in route)
+    print route
+    # print "Route: %s" % ",".join("%1.4f,%1.4f" % (i[0],i[1]) for i in route)
   else:
     print "Failed (%s)" % result
 
